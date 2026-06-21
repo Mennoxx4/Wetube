@@ -364,6 +364,8 @@ function closeAllModals() {
   document.querySelectorAll('.modal-overlay').forEach(el => {
     el.style.display = 'none';
   });
+  const mobileMenu = document.getElementById('mobileMenuOverlay');
+  if (mobileMenu) mobileMenu.classList.remove('open');
 }
 
 window.showPage = function(page) {
@@ -3754,6 +3756,12 @@ window.toggleUserMenu = function() {
   m.style.display = m.style.display === 'block' ? 'none' : 'block';
 }
 
+window.toggleMobileMenu = function() {
+  const overlay = document.getElementById('mobileMenuOverlay');
+  if (!overlay) return;
+  overlay.classList.toggle('open');
+}
+
 // ══ LIVE STREAMING ══
 let _liveCamStream = null, _liveMode = 'normal', _liveDocId = null;
 let _liveMicOn = true, _liveFacing = 'user';
@@ -4961,6 +4969,55 @@ input,textarea,select{font-family:var(--font)}
 
 /* HEADER */
 header{position:fixed;top:0;left:0;right:0;height:var(--hh);background:rgba(7,7,15,.97);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 18px;gap:12px;z-index:200}
+
+/* ══ HAMBURGER MENU (mobile uniquement) ══ */
+.hamburger-btn{
+  display:none; /* caché sur PC, activé en media query mobile */
+  flex-direction:column;
+  justify-content:center;
+  gap:4px;
+  width:32px;height:32px;
+  background:none;border:none;
+  cursor:pointer;
+  padding:6px;
+  flex-shrink:0;
+}
+.hamburger-btn span{
+  display:block;width:100%;height:2px;
+  background:var(--text);border-radius:2px;
+}
+.mobile-menu-overlay{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.6);
+  z-index:700;
+  opacity:0;
+  visibility:hidden;
+  transition:opacity .25s;
+}
+.mobile-menu-overlay.open{
+  display:block;
+  opacity:1;
+  visibility:visible;
+}
+.mobile-menu-panel{
+  position:fixed;top:0;left:0;bottom:0;
+  width:280px;max-width:80vw;
+  background:var(--s1);
+  border-right:1px solid var(--border);
+  padding:16px;
+  overflow-y:auto;
+  transform:translateX(-100%);
+  transition:transform .25s;
+}
+.mobile-menu-overlay.open .mobile-menu-panel{
+  transform:translateX(0);
+}
+.mobile-menu-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:16px;padding-bottom:12px;
+  border-bottom:1px solid var(--border);
+}
 .logo{font-family:var(--font);font-size:19px;font-weight:800;display:flex;align-items:center;gap:8px;min-width:148px;cursor:pointer;letter-spacing:-.4px}
 .logo-text{background:linear-gradient(135deg,#9b6dff,#ff4d8d);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:18px;font-weight:800}
 .logo-mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;color:#fff}
@@ -5615,6 +5672,8 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
   .btn-market-h{display:none!important}
   .btn-login-h{padding:6px 12px;font-size:12px}
   .avatar-btn{width:30px;height:30px;font-size:12px}
+  .hamburger-btn{display:flex}
+  header{padding:0 10px;gap:8px}
 
   /* Main */
   main{padding:calc(var(--hh) + 70px) 12px 100px}
@@ -5699,7 +5758,7 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
   #toast{bottom:90px;right:12px;left:12px;max-width:none;font-size:13px}
 
   /* AI fab */
-  .ai-fab{width:46px;height:46px;font-size:18px;bottom:76px;right:16px}
+  .ai-fab{width:46px;height:46px;font-size:18px;bottom:76px;right:16px;z-index:400}
   .ai-panel{width:calc(100vw - 24px);right:12px;bottom:134px}
 
   /* PWA Banner */
@@ -5722,7 +5781,7 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
   background:rgba(7,7,15,.97);
   backdrop-filter:blur(20px);
   border-top:1px solid var(--border);
-  z-index:500;
+  z-index:550;
   padding:0 4px;
   padding-bottom:env(safe-area-inset-bottom, 0px);
 }
@@ -5836,6 +5895,9 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
 
 <!-- HEADER -->
 <header>
+  <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleMobileMenu()" title="Menu">
+    <span></span><span></span><span></span>
+  </button>
   <div class="logo" onclick="showPage('home')">
     <svg width="32" height="32" viewBox="0 0 130 130" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
       <defs>
@@ -5926,6 +5988,53 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
     <a class="nav-a" id="nav-settings" onclick="showPage('settings')"><span class="nav-ico">⚙️</span>Paramètres</a>
   </div>
 </aside>
+
+<!-- MENU MOBILE (hamburger) — catégories + accès rapide -->
+<div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="if(event.target===this)toggleMobileMenu()">
+  <div class="mobile-menu-panel" id="mobileMenuPanel">
+    <div class="mobile-menu-header">
+      <span style="font-size:16px;font-weight:800">Menu</span>
+      <button onclick="toggleMobileMenu()" style="background:var(--s2);border:1px solid var(--border);color:var(--text);border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:16px">✕</button>
+    </div>
+    <div class="nav-group">
+      <a class="nav-a" onclick="showPage('market');toggleMobileMenu()"><span class="nav-ico">🛒</span>Marketplace</a>
+      <a class="nav-a" onclick="openPremiumModal();toggleMobileMenu()"><span class="nav-ico">⭐</span>Premium</a>
+    </div>
+    <div class="nav-div"></div>
+    <div class="nav-group">
+      <a class="nav-a" onclick="showPage('shorts');toggleMobileMenu()"><span class="nav-ico">⚡</span>Shorts</a>
+      <a class="nav-a" onclick="showPage('live');toggleMobileMenu()"><span class="nav-ico">🔴</span>Lives</a>
+      <a class="nav-a" onclick="showPage('subs');toggleMobileMenu()"><span class="nav-ico">📺</span>Abonnements</a>
+      <a class="nav-a" onclick="showPage('notifs');toggleMobileMenu()"><span class="nav-ico">🔔</span>Notifications</a>
+      <a class="nav-a" onclick="showPage('studio');toggleMobileMenu()"><span class="nav-ico">📊</span>WeTube Studio</a>
+    </div>
+    <div class="nav-div"></div>
+    <div class="nav-group">
+      <div class="nav-lbl">Explorer</div>
+      <a class="nav-a" onclick="filterCat('🎵 Musique');toggleMobileMenu()"><span class="nav-ico">🎵</span>Musique</a>
+      <a class="nav-a" onclick="filterCat('🎮 Gaming');toggleMobileMenu()"><span class="nav-ico">🎮</span>Gaming</a>
+      <a class="nav-a" onclick="filterCat('⚽ Sport');toggleMobileMenu()"><span class="nav-ico">⚽</span>Sport</a>
+      <a class="nav-a" onclick="filterCat('🎓 Tutoriels');toggleMobileMenu()"><span class="nav-ico">🎓</span>Tutoriels</a>
+      <a class="nav-a" onclick="filterCat('🍕 Cuisine');toggleMobileMenu()"><span class="nav-ico">🍕</span>Cuisine</a>
+      <a class="nav-a" onclick="filterCat('🔬 Science');toggleMobileMenu()"><span class="nav-ico">🔬</span>Science</a>
+      <a class="nav-a" onclick="filterCat('✈️ Voyage');toggleMobileMenu()"><span class="nav-ico">✈️</span>Voyage</a>
+      <a class="nav-a" onclick="filterCat('😴 ASMR');toggleMobileMenu()"><span class="nav-ico">😴</span>ASMR</a>
+      <a class="nav-a" onclick="filterCat('😂 Humour');toggleMobileMenu()"><span class="nav-ico">😂</span>Humour</a>
+      <a class="nav-a" onclick="filterCat('🎨 Art');toggleMobileMenu()"><span class="nav-ico">🎨</span>Art & Design</a>
+      <a class="nav-a" onclick="filterCat('🐾 Animaux');toggleMobileMenu()"><span class="nav-ico">🐾</span>Animaux</a>
+      <a class="nav-a" onclick="filterCat('💪 Fitness');toggleMobileMenu()"><span class="nav-ico">💪</span>Fitness</a>
+      <a class="nav-a" onclick="filterCat('💻 Tech');toggleMobileMenu()"><span class="nav-ico">💻</span>Tech</a>
+      <a class="nav-a" onclick="filterCat('🎭 Cinéma');toggleMobileMenu()"><span class="nav-ico">🎭</span>Cinéma</a>
+      <a class="nav-a" onclick="filterCat('🎙️ Podcast');toggleMobileMenu()"><span class="nav-ico">🎙️</span>Podcast</a>
+    </div>
+    <div class="nav-div"></div>
+    <div class="nav-group">
+      <div class="nav-lbl">Compte</div>
+      <a class="nav-a" onclick="showPage('settings');toggleMobileMenu()"><span class="nav-ico">⚙️</span>Paramètres</a>
+      <a class="nav-a" onclick="showPage('migrate');toggleMobileMenu()"><span class="nav-ico">🐰</span>Migration Bunny</a>
+    </div>
+  </div>
+</div>
 
 <!-- MAIN -->
 <main>
