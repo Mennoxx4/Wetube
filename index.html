@@ -5469,21 +5469,34 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
 
 /* Mobile */
 @media(max-width:900px){
-  #page-shorts{left:0}
+  #page-shorts{
+    left:0;
+    bottom:58px; /* laisse la place à la barre de navigation mobile */
+  }
   .short-player{
-    max-width:min(360px, calc(100vw - 80px));
-    border-radius:10px;
+    max-width:min(360px, calc(100vw - 32px));
   }
 }
 @media(max-width:600px){
+  #page-shorts{
+    top:0;
+    bottom:58px;
+    left:0;
+    right:0;
+  }
+  .short-card{
+    height:calc(100vh - 58px);
+    padding:0;
+  }
   .short-player{
     max-width:100vw;
-    height:100vh;
+    width:100vw;
+    height:calc(100vh - 58px);
+    max-height:calc(100vh - 58px);
     border-radius:0;
     aspect-ratio:unset;
-    width:100vw;
   }
-  .short-card{height:100vh;padding:0}
+  .short-seekbar{bottom:env(safe-area-inset-bottom, 8px)}
 }
 
 /* ══ SUBSCRIPTION CARDS ══ */
@@ -5572,8 +5585,8 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
   .hero-logged-title{font-size:15px}
 
   /* Filtres */
-  .filters{margin-bottom:16px;gap:6px}
-  .chip{padding:5px 12px;font-size:12px}
+  .filters{margin-bottom:16px;gap:8px;-webkit-overflow-scrolling:touch}
+  .chip{padding:8px 14px;font-size:13px;min-height:36px;display:flex;align-items:center}
 
   /* Section title */
   .sec-title{font-size:14px;margin-bottom:12px}
@@ -5709,6 +5722,35 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
 </style>
 </head>
 <body>
+<!-- Bandeau suggestion Chrome si Safari détecté -->
+<div id="safariSuggestBanner" style="display:none;position:fixed;top:0;left:0;right:0;background:#1a1a2e;color:#fff;padding:10px 16px;z-index:9999;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:system-ui,sans-serif">
+  <span>💡 Pour une meilleure expérience, ouvre WeTube avec <strong>Google Chrome</strong></span>
+  <div style="display:flex;gap:8px;flex-shrink:0">
+    <button onclick="document.getElementById('safariSuggestBanner').style.display='none'" style="background:none;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer">Continuer</button>
+  </div>
+</div>
+<script>
+(function(){
+  // Détecte Safari (et pas Chrome qui contient aussi "Safari" dans son user agent)
+  var ua = navigator.userAgent;
+  var isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+  if (isSafari && !sessionStorage.getItem('safariBannerDismissed')) {
+    var banner = document.getElementById('safariSuggestBanner');
+    if (banner) {
+      banner.style.display = 'flex';
+      var pushDown = document.createElement('style');
+      pushDown.textContent = 'header{margin-top:42px !important}';
+      document.head.appendChild(pushDown);
+    }
+  }
+  window.addEventListener('DOMContentLoaded', function() {
+    var btn = document.querySelector('#safariSuggestBanner button');
+    if (btn) btn.addEventListener('click', function() {
+      sessionStorage.setItem('safariBannerDismissed', '1');
+    });
+  });
+})();
+</script>
 
 <!-- TOAST -->
 <div id="toast">🎉 <span id="toastMsg"></span></div>
