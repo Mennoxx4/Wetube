@@ -99,7 +99,7 @@
 <!-- Firebase SDKs -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, GoogleAuthProvider, signInWithPopup, multiFactor, PhoneAuthProvider, PhoneMultiFactorGenerator, RecaptchaVerifier, getMultiFactorResolver } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, multiFactor, PhoneAuthProvider, PhoneMultiFactorGenerator, RecaptchaVerifier, getMultiFactorResolver } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot, query, orderBy, where, serverTimestamp, arrayUnion, arrayRemove, increment, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
@@ -127,6 +127,17 @@ const BUNNY_CDN_HOSTNAME = 'vz-72e7d714-3d2.b-cdn.net';
 
 let allVideos = [];
 let unsubVideos = null;
+
+// ══ GÉRER LE RETOUR DE CONNEXION GOOGLE PAR REDIRECTION (mobile/PWA) ══
+getRedirectResult(auth).then(result => {
+  if (result && result.user) {
+    toast('👋 Connecté avec Google !');
+  }
+}).catch(e => {
+  if (e.code && e.code !== 'auth/no-current-user') {
+    console.error('Erreur retour redirection Google:', e.code);
+  }
+});
 
 // ══ AUTH STATE ══
 onAuthStateChanged(auth, async user => {
@@ -336,7 +347,29 @@ async function sendNotificationToSubscribers(video) {
 }
 
 // ══ NAVIGATION ══
+// Ferme TOUS les modals possibles — appelé à chaque navigation pour éviter
+// qu'un modal "fantôme" (display:none jamais réappliqué) bloque les clics
+// par-dessus la barre de navigation mobile (bug PWA état persistant).
+function closeAllModals() {
+  const modalIds = [
+    'channelModal', 'liveStudioModal', 'watchLiveModal', 'editVideoModal',
+    'productFormModal', 'productDetailModal', 'makeOfferModal',
+    'authModal', 'premiumModal', 'wetipModal', 'wefanModal',
+    'creatorSetupModal', 'cookieBanner', 'cookieOverlay'
+  ];
+  modalIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.style.display = 'none';
+  });
+}
+
 window.showPage = function(page) {
+  // Ferme tous les modals à chaque changement de page (corrige le bug
+  // où la barre de nav mobile devient parfois bloquée/impossible à cliquer)
+  closeAllModals();
   // Pause video si on quitte watch
   if (currentPage === 'watch' && page !== 'watch') {
     const player = document.getElementById('mainPlayer');
@@ -462,7 +495,18 @@ window.doGoogleLogin = async function() {
     closeAuth();
     toast('👋 Connecté avec Google !');
   } catch(e) {
-    authError(firebaseErrMsg(e.code));
+    // Si le popup échoue (bloqué par le navigateur, PWA installée, mobile…) on bascule sur redirect
+    const popupFailCodes = ['auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/operation-not-supported-in-this-environment'];
+    if (popupFailCodes.includes(e.code)) {
+      try {
+        await signInWithRedirect(auth, googleProvider);
+        // La page va se recharger automatiquement après la redirection
+      } catch(e2) {
+        authError(firebaseErrMsg(e2.code));
+      }
+    } else {
+      authError(firebaseErrMsg(e.code));
+    }
   } finally { setAuthLoading(false); }
 }
 
@@ -621,9 +665,9 @@ function renderActualPlayer(pw, id, v) {
 window.watchVideo = async function(id) {
   const v = allVideos.find(x => x.id === id);
   if (!v) return;
-  // Fermer le modal de chaîne s'il est ouvert (sinon la vidéo joue en arrière-plan derrière le modal)
-  const chanModal = document.getElementById('channelModal');
-  if (chanModal && chanModal.style.display === 'block') chanModal.style.display = 'none';
+  // Fermer TOUS les modals ouverts (sinon en mode PWA un modal peut rester
+  // affiché et la vidéo joue cachée derrière, donc on entend le son sans rien voir)
+  closeAllModals();
   // Shorts ne peuvent pas être lus en format long
   if (v.cat === '⚡ Shorts') {
     showPage('shorts');
