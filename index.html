@@ -3316,10 +3316,72 @@ function getNextShort() {
   return pick;
 }
 
+// ══ BARRE DE PROGRESSION DES SHORTS (cliquable + glissable) ══
+window.updateShortProgress = function(video) {
+  if (!video.duration || isNaN(video.duration)) return;
+  const pct = (video.currentTime / video.duration) * 100;
+  const player = video.closest('.short-player');
+  if (!player) return;
+  const fill = player.querySelector('.short-seekbar-fill');
+  const handle = player.querySelector('.short-seekbar-handle');
+  if (fill) fill.style.width = pct + '%';
+  if (handle) handle.style.left = pct + '%';
+}
+
+window.seekShort = function(e, bar) {
+  // Ignore le clic si on vient juste de faire un drag (évite double action)
+  if (bar._wasDragging) { bar._wasDragging = false; return; }
+  const player = bar.closest('.short-player');
+  const video = player?.querySelector('.short-video');
+  if (!video || !video.duration) return;
+  const rect = bar.getBoundingClientRect();
+  const clickX = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  const pct = Math.max(0, Math.min(1, clickX / rect.width));
+  video.currentTime = pct * video.duration;
+  updateShortProgress(video);
+}
+
+window.startShortDrag = function(e, bar) {
+  e.preventDefault();
+  const player = bar.closest('.short-player');
+  const video = player?.querySelector('.short-video');
+  if (!video) return;
+
+  const wasPlaying = !video.paused;
+  video.pause();
+  bar._wasDragging = true;
+
+  function moveHandler(ev) {
+    const rect = bar.getBoundingClientRect();
+    const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const fill = bar.querySelector('.short-seekbar-fill');
+    const handle = bar.querySelector('.short-seekbar-handle');
+    if (fill) fill.style.width = (pct*100) + '%';
+    if (handle) handle.style.left = (pct*100) + '%';
+    if (video.duration) video.currentTime = pct * video.duration;
+  }
+
+  function upHandler() {
+    document.removeEventListener('mousemove', moveHandler);
+    document.removeEventListener('mouseup', upHandler);
+    document.removeEventListener('touchmove', moveHandler);
+    document.removeEventListener('touchend', upHandler);
+    if (wasPlaying) video.play().catch(()=>{});
+  }
+
+  document.addEventListener('mousemove', moveHandler);
+  document.addEventListener('mouseup', upHandler);
+  document.addEventListener('touchmove', moveHandler, {passive:false});
+  document.addEventListener('touchend', upHandler);
+
+  moveHandler(e);
+}
+
 function buildShortCard(v) {
   return `<div class="short-card" id="short-${v.id}" data-videoid="${v.id}">
     <div class="short-player">
-      <video class="short-video" src="${v.videoUrl||''}" loop playsinline webkit-playsinline preload="auto" onclick="this.paused?this.play():this.pause()"></video>
+      <video class="short-video" src="${v.videoUrl||''}" loop playsinline webkit-playsinline preload="auto" onclick="this.paused?this.play():this.pause()" ontimeupdate="updateShortProgress(this)"></video>
       ${!v.videoUrl ? `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;background:#111"><div style="font-size:48px">🎬</div><p style="color:rgba(255,255,255,.7)">Indisponible</p></div>` : ''}
       <div style="position:absolute;bottom:0;left:0;right:0;height:220px;background:linear-gradient(transparent,rgba(0,0,0,.85));pointer-events:none"></div>
       <div class="short-info">
@@ -3343,6 +3405,11 @@ function buildShortCard(v) {
           <div style="font-size:24px">🚩</div>
           <div style="font-size:11px">Signaler</div>
         </button>
+      </div>
+      <!-- Barre de progression cliquable/glissable -->
+      <div class="short-seekbar" onclick="seekShort(event,this)" onmousedown="startShortDrag(event,this)" ontouchstart="startShortDrag(event,this)">
+        <div class="short-seekbar-fill" style="width:0%"></div>
+        <div class="short-seekbar-handle" style="left:0%"></div>
       </div>
     </div>
   </div>`;
@@ -5324,6 +5391,50 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
   object-fit:cover;
   display:block;
 }
+
+/* ══ BARRE DE PROGRESSION DES SHORTS ══ */
+.short-seekbar{
+  position:absolute;
+  bottom:0;
+  left:0;
+  right:0;
+  height:24px;
+  display:flex;
+  align-items:center;
+  cursor:pointer;
+  z-index:20;
+  padding:0 4px;
+}
+.short-seekbar::before{
+  content:'';
+  position:absolute;
+  left:0;right:0;
+  height:3px;
+  background:rgba(255,255,255,.25);
+  border-radius:2px;
+}
+.short-seekbar-fill{
+  position:absolute;
+  left:0;
+  height:3px;
+  background:#fff;
+  border-radius:2px;
+  pointer-events:none;
+  transition:width .05s linear;
+}
+.short-seekbar-handle{
+  position:absolute;
+  width:11px;height:11px;
+  background:#fff;
+  border-radius:50%;
+  transform:translate(-50%,0);
+  box-shadow:0 1px 4px rgba(0,0,0,.5);
+  pointer-events:none;
+  transition:left .05s linear;
+}
+.short-seekbar:hover .short-seekbar-fill,
+.short-seekbar:active .short-seekbar-fill{height:4px}
+
 .short-info{
   position:absolute;
   bottom:70px;
