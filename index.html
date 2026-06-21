@@ -383,6 +383,11 @@ window.showPage = function(page) {
     const nav = document.getElementById('shortsNav');
     if (nav) nav.remove();
   }
+  // Arrête le jeu WeRunner si on quitte la page jeux
+  if (currentPage === 'games' && page !== 'games') {
+    _gameRunning = false;
+    if (_gameLoop) cancelAnimationFrame(_gameLoop);
+  }
   // Cacher toutes les pages, montrer la bonne
   document.querySelectorAll('.page').forEach(p => {
     p.classList.remove('active');
@@ -409,6 +414,7 @@ window.showPage = function(page) {
   if (page === 'history') renderHistory();
   if (page === 'shorts') renderShorts();
   if (page === 'live') renderLive();
+  if (page === 'games') initGamesPage();
   if (page === 'market') renderMarketplace();
   if (page === 'studio') { if (!currentUser) { openAuth(); return; } renderStudio(); }
   if (page === 'migrate') { if (!currentUser) { openAuth(); return; } }
@@ -4642,6 +4648,259 @@ window.deleteProduct = async function(productId) {
   } catch(e) { toast('❌ ' + e.message); }
 }
 
+// ══ WETUBE JEUX — WeRunner (façon Dino/Flappy) ══
+let _gameCtx = null, _gameCanvas = null, _gameLoop = null;
+let _gameRunning = false, _gameScore = 0, _gameSpeed = 5;
+let _player = null, _obstacles = [], _gameFrame = 0;
+let _gameKeyHandler = null;
+
+function initGamesPage() {
+  const canvas = document.getElementById('weRunnerCanvas');
+  if (!canvas) return;
+  _gameCanvas = canvas;
+  _gameCtx = canvas.getContext('2d');
+  resizeGameCanvas();
+  loadHighScore();
+  loadGameScoresList();
+  loadWorldLeaderboard();
+  drawIdleFrame();
+
+  canvas.onclick = () => { if (_gameRunning) jumpPlayer(); };
+  canvas.ontouchstart = (e) => { e.preventDefault(); if (_gameRunning) jumpPlayer(); };
+
+  if (_gameKeyHandler) document.removeEventListener('keydown', _gameKeyHandler);
+  _gameKeyHandler = (e) => {
+    if ((e.code === 'Space' || e.code === 'ArrowUp') && currentPage === 'games') {
+      e.preventDefault();
+      if (_gameRunning) jumpPlayer();
+    }
+  };
+  document.addEventListener('keydown', _gameKeyHandler);
+}
+
+function resizeGameCanvas() {
+  if (!_gameCanvas) return;
+  const rect = _gameCanvas.getBoundingClientRect();
+  _gameCanvas.width = rect.width;
+  _gameCanvas.height = 220;
+}
+
+function loadHighScore() {
+  const hs = localStorage.getItem('werunner_highscore') || '0';
+  const el = document.getElementById('gameHighScore');
+  if (el) el.textContent = hs;
+}
+
+function loadGameScoresList() {
+  const scores = JSON.parse(localStorage.getItem('werunner_scores') || '[]');
+  const list = document.getElementById('gameScoresList');
+  if (!list) return;
+  if (!scores.length) {
+    list.innerHTML = '<p style="color:var(--muted);font-size:13px">Aucune partie jouée encore. Lance une partie !</p>';
+    return;
+  }
+  list.innerHTML = scores.slice(0,5).map((s,i) => `
+    <div style="display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:8px 14px">
+      <div style="font-size:13px;font-weight:800;color:var(--muted);width:20px">${i+1}</div>
+      <div style="flex:1;font-size:13px">Score : <strong style="color:var(--accent)">${s.score}</strong></div>
+      <div style="font-size:11px;color:var(--muted)">${s.date}</div>
+    </div>`).join('');
+}
+
+function drawIdleFrame() {
+  if (!_gameCtx || !_gameCanvas) return;
+  const ctx = _gameCtx, W = _gameCanvas.width, H = _gameCanvas.height;
+  ctx.fillStyle = '#0a0a14';
+  ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle = '#262640';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, H-30); ctx.lineTo(W, H-30);
+  ctx.stroke();
+  drawPlayerShape(ctx, 40, H-30-36, 36);
+}
+
+function drawPlayerShape(ctx, x, y, size) {
+  ctx.fillStyle = '#9b6dff';
+  ctx.beginPath();
+  ctx.roundRect(x, y, size, size, 6);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(x + size*0.7, y + size*0.3, 3, 0, Math.PI*2);
+  ctx.fill();
+}
+
+window.startWeRunner = function() {
+  if (!_gameCanvas) initGamesPage();
+  document.getElementById('gameOverlay').style.display = 'none';
+  _gameScore = 0;
+  _gameSpeed = 5;
+  _gameFrame = 0;
+  _obstacles = [];
+  document.getElementById('gameScore').textContent = '0';
+
+  const H = _gameCanvas.height;
+  _player = {
+    x: 40, y: H - 30 - 36, w: 36, h: 36,
+    vy: 0, jumping: false, groundY: H - 30 - 36
+  };
+
+  _gameRunning = true;
+  if (_gameLoop) cancelAnimationFrame(_gameLoop);
+  gameTick();
+}
+
+function jumpPlayer() {
+  if (!_player || _player.jumping) return;
+  _player.vy = -11;
+  _player.jumping = true;
+}
+
+function gameTick() {
+  if (!_gameRunning) return;
+  const ctx = _gameCtx, canvas = _gameCanvas;
+  const W = canvas.width, H = canvas.height;
+  _gameFrame++;
+
+  // Physique joueur
+  _player.vy += 0.6; // gravité
+  _player.y += _player.vy;
+  if (_player.y >= _player.groundY) {
+    _player.y = _player.groundY;
+    _player.vy = 0;
+    _player.jumping = false;
+  }
+
+  // Génération d'obstacles
+  if (_gameFrame % Math.max(40, 70 - Math.floor(_gameSpeed*2)) === 0) {
+    const h = 28 + Math.random()*22;
+    _obstacles.push({ x: W + 10, y: H - 30 - h, w: 18 + Math.random()*10, h });
+  }
+
+  // Déplacement obstacles
+  _obstacles.forEach(o => o.x -= _gameSpeed);
+  _obstacles = _obstacles.filter(o => o.x + o.w > 0);
+
+  // Collision
+  for (const o of _obstacles) {
+    if (_player.x < o.x + o.w && _player.x + _player.w > o.x &&
+        _player.y < o.y + o.h && _player.y + _player.h > o.y) {
+      return endGame();
+    }
+  }
+
+  // Score + difficulté progressive
+  _gameScore++;
+  if (_gameScore % 300 === 0) _gameSpeed += 0.6;
+  document.getElementById('gameScore').textContent = Math.floor(_gameScore/5);
+
+  // Dessin
+  ctx.fillStyle = '#0a0a14';
+  ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle = '#262640';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, H-30); ctx.lineTo(W, H-30);
+  ctx.stroke();
+
+  drawPlayerShape(ctx, _player.x, _player.y, _player.w);
+
+  ctx.fillStyle = '#ff5c8a';
+  _obstacles.forEach(o => {
+    ctx.beginPath();
+    ctx.roundRect(o.x, o.y, o.w, o.h, 4);
+    ctx.fill();
+  });
+
+  _gameLoop = requestAnimationFrame(gameTick);
+}
+
+function endGame() {
+  _gameRunning = false;
+  if (_gameLoop) cancelAnimationFrame(_gameLoop);
+  const finalScore = Math.floor(_gameScore/5);
+
+  // Sauvegarde meilleur score local
+  const hs = parseInt(localStorage.getItem('werunner_highscore') || '0');
+  if (finalScore > hs) {
+    localStorage.setItem('werunner_highscore', finalScore);
+    document.getElementById('gameHighScore').textContent = finalScore;
+  }
+
+  // Sauvegarde historique des scores (local)
+  const scores = JSON.parse(localStorage.getItem('werunner_scores') || '[]');
+  scores.unshift({ score: finalScore, date: new Date().toLocaleDateString('fr-FR') });
+  localStorage.setItem('werunner_scores', JSON.stringify(scores.slice(0,20)));
+  loadGameScoresList();
+
+  // Soumission au classement mondial (Firebase) — seulement si connecté
+  submitWorldScore(finalScore);
+
+  document.getElementById('gameOverlayTitle').textContent = '💥 Perdu !';
+  document.getElementById('gameOverlaySub').textContent = `Score final : ${finalScore}`;
+  document.getElementById('gameStartBtn').textContent = '🔄 Rejouer';
+  document.getElementById('gameOverlay').style.display = 'flex';
+}
+
+// ══ CLASSEMENT MONDIAL WERUNNER ══
+async function submitWorldScore(score) {
+  if (!currentUser || score <= 0) {
+    loadWorldLeaderboard();
+    return;
+  }
+  try {
+    const ref = doc(db, 'werunnerScores', currentUser.uid);
+    const snap = await getDoc(ref);
+    const existing = snap.exists() ? snap.data().score : 0;
+    // On ne garde que le MEILLEUR score de chaque joueur
+    if (score > existing) {
+      let avatarUrl = '';
+      try {
+        const userSnap = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userSnap.exists()) avatarUrl = userSnap.data().avatarUrl || '';
+      } catch(e) {}
+      await setDoc(ref, {
+        uid: currentUser.uid,
+        name: currentUser.displayName || currentUser.email || 'Joueur',
+        avatarUrl,
+        score,
+        updatedAt: serverTimestamp()
+      });
+    }
+  } catch(e) { /* silencieux, le jeu reste jouable sans classement */ }
+  loadWorldLeaderboard();
+}
+
+async function loadWorldLeaderboard() {
+  const list = document.getElementById('worldLeaderboardList');
+  if (!list) return;
+  list.innerHTML = '<p style="color:var(--muted);font-size:13px">⏳ Chargement…</p>';
+  try {
+    const snap = await getDocs(collection(db, 'werunnerScores'));
+    const scores = snap.docs.map(d => d.data()).sort((a,b) => b.score - a.score).slice(0, 10);
+
+    if (!scores.length) {
+      list.innerHTML = '<p style="color:var(--muted);font-size:13px">Aucun score enregistré encore. Sois le premier !</p>';
+      return;
+    }
+
+    const medals = ['🥇','🥈','🥉'];
+    list.innerHTML = scores.map((s,i) => {
+      const isMe = currentUser && s.uid === currentUser.uid;
+      return `
+      <div style="display:flex;align-items:center;gap:12px;background:${isMe?'rgba(124,111,255,.12)':'var(--s2)'};border:1px solid ${isMe?'var(--accent)':'var(--border)'};border-radius:10px;padding:10px 14px">
+        <div style="font-size:16px;font-weight:800;width:28px;text-align:center;color:${i<3?'#fff':'var(--muted)'}">${medals[i] || (i+1)}</div>
+        <div style="width:32px;height:32px;border-radius:50%;background:${s.avatarUrl?`url(${s.avatarUrl}) center/cover`:'linear-gradient(135deg,#9b6dff,#ff4d8d)'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0">${s.avatarUrl?'':(s.name||'?')[0].toUpperCase()}</div>
+        <div style="flex:1;font-size:13px;font-weight:600">${esc(s.name||'Joueur')}${isMe?' <span style="color:var(--accent);font-size:11px">(toi)</span>':''}</div>
+        <div style="font-size:15px;font-weight:800;color:var(--accent)">${s.score}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<p style="color:var(--muted);font-size:13px">Classement indisponible pour le moment.</p>';
+  }
+}
+
 async function renderLive() {
   const grid = document.getElementById('liveGrid');
   const wrap = document.getElementById('liveBtnsWrap');
@@ -5955,6 +6214,7 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
     <a class="nav-a active" id="nav-home" onclick="showPage('home')"><span class="nav-ico">🏠</span>Accueil</a>
     <a class="nav-a" id="nav-shorts" onclick="showPage('shorts')"><span class="nav-ico">⚡</span>Shorts</a>
     <a class="nav-a" id="nav-live" onclick="showPage('live')"><span class="nav-ico">🔴</span>Lives</a>
+    <a class="nav-a" id="nav-games" onclick="showPage('games')"><span class="nav-ico">🎮</span>WeTube Jeux</a>
     <a class="nav-a" id="nav-trending" onclick="showPage('trending')"><span class="nav-ico">🔥</span>Tendances</a>
     <a class="nav-a" id="nav-subs" onclick="showPage('subs')"><span class="nav-ico">📺</span>Abonnements</a>
     <a class="nav-a" id="nav-notifs" onclick="showPage('notifs')"><span class="nav-ico">🔔</span>Notifications</a>
@@ -6004,6 +6264,7 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
     <div class="nav-group">
       <a class="nav-a" onclick="showPage('shorts');toggleMobileMenu()"><span class="nav-ico">⚡</span>Shorts</a>
       <a class="nav-a" onclick="showPage('live');toggleMobileMenu()"><span class="nav-ico">🔴</span>Lives</a>
+      <a class="nav-a" onclick="showPage('games');toggleMobileMenu()"><span class="nav-ico">🎮</span>WeTube Jeux</a>
       <a class="nav-a" onclick="showPage('subs');toggleMobileMenu()"><span class="nav-ico">📺</span>Abonnements</a>
       <a class="nav-a" onclick="showPage('notifs');toggleMobileMenu()"><span class="nav-ico">🔔</span>Notifications</a>
       <a class="nav-a" onclick="showPage('studio');toggleMobileMenu()"><span class="nav-ico">📊</span>WeTube Studio</a>
@@ -6205,6 +6466,47 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
 <div class="page" id="page-trending">
   <div class="sec-title"><span class="sec-dot"></span>🔥 Tendances</div>
   <div id="trendingList"></div>
+</div>
+
+<!-- WETUBE JEUX -->
+<div class="page" id="page-games">
+  <div class="sec-title"><span class="sec-dot"></span>🎮 WeTube Jeux</div>
+  <p style="color:var(--muted);font-size:13px;margin-bottom:20px">Joue en attendant le chargement d'une vidéo, ou juste pour le fun !</p>
+
+  <div style="background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:640px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+      <div style="font-size:15px;font-weight:700">🦖 WeRunner</div>
+      <div style="display:flex;gap:16px;font-size:13px;color:var(--muted)">
+        <span>Score : <strong id="gameScore" style="color:var(--accent)">0</strong></span>
+        <span>Record : <strong id="gameHighScore" style="color:var(--text)">0</strong></span>
+      </div>
+    </div>
+
+    <div style="position:relative;border-radius:10px;overflow:hidden;border:2px solid var(--border);background:#0a0a14">
+      <canvas id="weRunnerCanvas" width="600" height="220" style="width:100%;display:block;touch-action:none;cursor:pointer"></canvas>
+      <div id="gameOverlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(0,0,0,.55);text-align:center;padding:20px">
+        <div style="font-size:36px">🦖</div>
+        <div id="gameOverlayTitle" style="font-size:18px;font-weight:800;color:#fff">WeRunner</div>
+        <div id="gameOverlaySub" style="font-size:13px;color:rgba(255,255,255,.8)">Appuie sur Espace, clique ou tape pour sauter</div>
+        <button onclick="startWeRunner()" id="gameStartBtn" style="background:linear-gradient(135deg,#9b6dff,#ff4d8d);color:#fff;border:none;border-radius:10px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer">▶ Jouer</button>
+      </div>
+    </div>
+
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:12px">⌨️ Espace / ↑ pour sauter · 📱 Tape l'écran sur mobile</p>
+  </div>
+
+  <!-- Classement mondial -->
+  <div style="margin-top:24px;max-width:640px">
+    <div class="sec-title" style="font-size:15px"><span class="sec-dot"></span>🌍 Classement mondial</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Connecte-toi pour apparaître dans le classement !</p>
+    <div id="worldLeaderboardList" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+
+  <!-- Classement (local) -->
+  <div style="margin-top:24px;max-width:640px">
+    <div class="sec-title" style="font-size:15px"><span class="sec-dot"></span>🏆 Tes meilleurs scores</div>
+    <div id="gameScoresList" style="display:flex;flex-direction:column;gap:6px;margin-top:10px"></div>
+  </div>
 </div>
 
 <!-- LIVE -->
