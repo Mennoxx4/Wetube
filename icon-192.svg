@@ -1,0 +1,23 @@
+<svg width="192" height="192" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a0a3a"/>
+      <stop offset="100%" stop-color="#3a0a25"/>
+    </linearGradient>
+    <linearGradient id="ic" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9b6dff"/>
+      <stop offset="100%" stop-color="#ff4d8d"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="192" height="192" rx="42" fill="url(#bg)"/>
+  <!-- W shape -->
+  <line x1="34" y1="44" x2="62" y2="148" stroke="url(#ic)" stroke-width="18" stroke-linecap="round"/>
+  <line x1="62" y1="148" x2="96" y2="68" stroke="url(#ic)" stroke-width="18" stroke-linecap="round"/>
+  <line x1="96" y1="68" x2="130" y2="148" stroke="url(#ic)" stroke-width="18" stroke-linecap="round"/>
+  <line x1="130" y1="148" x2="158" y2="44" stroke="url(#ic)" stroke-width="18" stroke-linecap="round"/>
+  <!-- Play triangle in the W valley -->
+  <polygon points="70,90 70,132 114,111" fill="url(#ic)"/>
+  <polygon points="74,97 74,125 106,111" fill="url(#bg)"/>
+  <polygon points="79,103 79,119 101,111" fill="url(#ic)" opacity="0.85"/>
+</svg>

@@ -1,0 +1,26 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /?action=upload
+Disallow: /?action=settings
+
+# Sitemap
+Sitemap: https://wetube-off.netlify.app/sitemap.xml
+
+# Google
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+# Bing
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 2
+
+# Google Images
+User-agent: Googlebot-Image
+Allow: /
+
+# Google Videos
+User-agent: Googlebot-Video
+Allow: /
