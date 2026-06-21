@@ -4650,7 +4650,7 @@ window.deleteProduct = async function(productId) {
 
 // ══ WETUBE JEUX — WeRunner (façon Dino/Flappy) ══
 let _gameCtx = null, _gameCanvas = null, _gameLoop = null;
-let _gameRunning = false, _gameScore = 0, _gameSpeed = 5;
+let _gameRunning = false, _gameScore = 0, _gameSpeed = 3;
 let _player = null, _obstacles = [], _gameFrame = 0;
 let _gameKeyHandler = null;
 
@@ -4682,7 +4682,7 @@ function resizeGameCanvas() {
   if (!_gameCanvas) return;
   const rect = _gameCanvas.getBoundingClientRect();
   _gameCanvas.width = rect.width;
-  _gameCanvas.height = 220;
+  _gameCanvas.height = 380;
 }
 
 function loadHighScore() {
@@ -4710,14 +4710,16 @@ function loadGameScoresList() {
 function drawIdleFrame() {
   if (!_gameCtx || !_gameCanvas) return;
   const ctx = _gameCtx, W = _gameCanvas.width, H = _gameCanvas.height;
+  const groundOffset = Math.round(H * 0.14); // proportionnel au lieu de fixe
+  const playerSize = Math.round(H * 0.16);
   ctx.fillStyle = '#0a0a14';
   ctx.fillRect(0,0,W,H);
   ctx.strokeStyle = '#262640';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(0, H-30); ctx.lineTo(W, H-30);
+  ctx.moveTo(0, H-groundOffset); ctx.lineTo(W, H-groundOffset);
   ctx.stroke();
-  drawPlayerShape(ctx, 40, H-30-36, 36);
+  drawPlayerShape(ctx, 40, H-groundOffset-playerSize, playerSize);
 }
 
 function drawPlayerShape(ctx, x, y, size) {
@@ -4735,15 +4737,17 @@ window.startWeRunner = function() {
   if (!_gameCanvas) initGamesPage();
   document.getElementById('gameOverlay').style.display = 'none';
   _gameScore = 0;
-  _gameSpeed = 5;
+  _gameSpeed = 3;
   _gameFrame = 0;
   _obstacles = [];
   document.getElementById('gameScore').textContent = '0';
 
   const H = _gameCanvas.height;
+  const groundOffset = Math.round(H * 0.14);
+  const playerSize = Math.round(H * 0.16);
   _player = {
-    x: 40, y: H - 30 - 36, w: 36, h: 36,
-    vy: 0, jumping: false, groundY: H - 30 - 36
+    x: 40, y: H - groundOffset - playerSize, w: playerSize, h: playerSize,
+    vy: 0, jumping: false, groundY: H - groundOffset - playerSize
   };
 
   _gameRunning = true;
@@ -4753,7 +4757,7 @@ window.startWeRunner = function() {
 
 function jumpPlayer() {
   if (!_player || _player.jumping) return;
-  _player.vy = -11;
+  _player.vy = -16;
   _player.jumping = true;
 }
 
@@ -4761,10 +4765,11 @@ function gameTick() {
   if (!_gameRunning) return;
   const ctx = _gameCtx, canvas = _gameCanvas;
   const W = canvas.width, H = canvas.height;
+  const groundOffset = Math.round(H * 0.14);
   _gameFrame++;
 
-  // Physique joueur
-  _player.vy += 0.6; // gravité
+  // Physique joueur (gravité plus forte vu le canvas agrandi)
+  _player.vy += 1.0;
   _player.y += _player.vy;
   if (_player.y >= _player.groundY) {
     _player.y = _player.groundY;
@@ -4772,10 +4777,10 @@ function gameTick() {
     _player.jumping = false;
   }
 
-  // Génération d'obstacles
+  // Génération d'obstacles (taille proportionnelle au canvas)
   if (_gameFrame % Math.max(40, 70 - Math.floor(_gameSpeed*2)) === 0) {
-    const h = 28 + Math.random()*22;
-    _obstacles.push({ x: W + 10, y: H - 30 - h, w: 18 + Math.random()*10, h });
+    const h = (28 + Math.random()*22) * (H/220);
+    _obstacles.push({ x: W + 10, y: H - groundOffset - h, w: (18 + Math.random()*10) * (H/220), h });
   }
 
   // Déplacement obstacles
@@ -4792,7 +4797,7 @@ function gameTick() {
 
   // Score + difficulté progressive
   _gameScore++;
-  if (_gameScore % 300 === 0) _gameSpeed += 0.6;
+  if (_gameScore % 150 === 0) _gameSpeed = Math.min(12, _gameSpeed + 0.25);
   document.getElementById('gameScore').textContent = Math.floor(_gameScore/5);
 
   // Dessin
@@ -4801,7 +4806,7 @@ function gameTick() {
   ctx.strokeStyle = '#262640';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(0, H-30); ctx.lineTo(W, H-30);
+  ctx.moveTo(0, H-groundOffset); ctx.lineTo(W, H-groundOffset);
   ctx.stroke();
 
   drawPlayerShape(ctx, _player.x, _player.y, _player.w);
@@ -6473,7 +6478,7 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
   <div class="sec-title"><span class="sec-dot"></span>🎮 WeTube Jeux</div>
   <p style="color:var(--muted);font-size:13px;margin-bottom:20px">Joue en attendant le chargement d'une vidéo, ou juste pour le fun !</p>
 
-  <div style="background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:640px">
+  <div style="background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:980px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
       <div style="font-size:15px;font-weight:700">🦖 WeRunner</div>
       <div style="display:flex;gap:16px;font-size:13px;color:var(--muted)">
@@ -6483,7 +6488,7 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
     </div>
 
     <div style="position:relative;border-radius:10px;overflow:hidden;border:2px solid var(--border);background:#0a0a14">
-      <canvas id="weRunnerCanvas" width="600" height="220" style="width:100%;display:block;touch-action:none;cursor:pointer"></canvas>
+      <canvas id="weRunnerCanvas" width="960" height="380" style="width:100%;height:380px;display:block;touch-action:none;cursor:pointer"></canvas>
       <div id="gameOverlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(0,0,0,.55);text-align:center;padding:20px">
         <div style="font-size:36px">🦖</div>
         <div id="gameOverlayTitle" style="font-size:18px;font-weight:800;color:#fff">WeRunner</div>
