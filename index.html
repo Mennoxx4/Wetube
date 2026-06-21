@@ -91,7 +91,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <!-- Google AdSense -->
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4887861230191191" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tus-js-client/3.1.3/tus.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tus-js-client@3.1.3/dist/tus.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 <!-- PayPal SDK -->
 <script src="https://www.paypal.com/sdk/js?client-id=AWekIpJAEARXaia8thFxBPS5VGEijPBZTsI-KCTvgBuOsYHKM5LhqiTj3O8t7UDyA_RbQSgRHFrVbcAD&vault=true&intent=subscription" data-sdk-integration-source="button-factory"></script>
@@ -563,19 +563,34 @@ function renderActualPlayer(pw, id, v) {
 
   const isHls = v.videoUrl && v.videoUrl.includes('.m3u8');
 
+  function showPlayerError(msg) {
+    pw.innerHTML = `<div style="width:100%;height:100%;background:#111;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;text-align:center;padding:20px">
+      <div style="font-size:48px">⏳</div>
+      <p style="color:var(--text);font-size:14px;font-weight:600">${msg}</p>
+      <button onclick="watchVideo('${id}')" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;cursor:pointer;margin-top:6px">🔄 Réessayer</button>
+    </div>`;
+  }
+
   if (isHls && videoEl.canPlayType('application/vnd.apple.mpegurl')) {
     // Safari lit le HLS nativement
     videoEl.src = v.videoUrl;
+    videoEl.addEventListener('error', () => showPlayerError('La vidéo est encore en cours de traitement sur Bunny Stream. Réessaie dans 1 à 2 minutes.'));
   } else if (isHls && window.Hls && Hls.isSupported()) {
     // Chrome/Firefox/Edge : utiliser hls.js
     if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
     const hls = new Hls();
+    hls.on(Hls.Events.ERROR, (event, data) => {
+      if (data.fatal) {
+        showPlayerError('La vidéo est encore en cours de traitement sur Bunny Stream. Réessaie dans 1 à 2 minutes.');
+      }
+    });
     hls.loadSource(v.videoUrl);
     hls.attachMedia(videoEl);
     window._currentHls = hls;
   } else {
     // Vidéo classique (anciennes vidéos Firebase, format mp4 direct)
     videoEl.src = v.videoUrl;
+    videoEl.addEventListener('error', () => showPlayerError('Impossible de charger cette vidéo. Le fichier est peut-être introuvable.'));
   }
 
   // Show controls bar
