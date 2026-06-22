@@ -4777,9 +4777,9 @@ function gameTick() {
     _player.jumping = false;
   }
 
-  // Génération d'obstacles (taille proportionnelle au canvas)
-  if (_gameFrame % Math.max(40, 70 - Math.floor(_gameSpeed*2)) === 0) {
-    const h = (28 + Math.random()*22) * (H/220);
+  // Génération d'obstacles (taille proportionnelle au canvas, plus bas et plus espacés)
+  if (_gameFrame % Math.max(60, 95 - Math.floor(_gameSpeed*2)) === 0) {
+    const h = (16 + Math.random()*12) * (H/220);
     _obstacles.push({ x: W + 10, y: H - groundOffset - h, w: (18 + Math.random()*10) * (H/220), h });
   }
 
