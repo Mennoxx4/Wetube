@@ -4710,8 +4710,8 @@ function loadGameScoresList() {
 function drawIdleFrame() {
   if (!_gameCtx || !_gameCanvas) return;
   const ctx = _gameCtx, W = _gameCanvas.width, H = _gameCanvas.height;
-  const groundOffset = Math.round(H * 0.14); // proportionnel au lieu de fixe
-  const playerSize = Math.round(H * 0.16);
+  const groundOffset = 40;
+  const playerSize = 38;
   ctx.fillStyle = '#0a0a14';
   ctx.fillRect(0,0,W,H);
   ctx.strokeStyle = '#262640';
@@ -4743,8 +4743,8 @@ window.startWeRunner = function() {
   document.getElementById('gameScore').textContent = '0';
 
   const H = _gameCanvas.height;
-  const groundOffset = Math.round(H * 0.14);
-  const playerSize = Math.round(H * 0.16);
+  const groundOffset = 40;
+  const playerSize = 38;
   _player = {
     x: 40, y: H - groundOffset - playerSize, w: playerSize, h: playerSize,
     vy: 0, jumping: false, groundY: H - groundOffset - playerSize
@@ -4765,7 +4765,7 @@ function gameTick() {
   if (!_gameRunning) return;
   const ctx = _gameCtx, canvas = _gameCanvas;
   const W = canvas.width, H = canvas.height;
-  const groundOffset = Math.round(H * 0.14);
+  const groundOffset = 40;
   _gameFrame++;
 
   // Physique joueur (gravité plus forte vu le canvas agrandi)
@@ -4777,10 +4777,10 @@ function gameTick() {
     _player.jumping = false;
   }
 
-  // Génération d'obstacles (taille proportionnelle au canvas, plus bas et plus espacés)
+  // Génération d'obstacles — taille FIXE et petite, peu importe la hauteur du canvas
   if (_gameFrame % Math.max(60, 95 - Math.floor(_gameSpeed*2)) === 0) {
-    const h = (16 + Math.random()*12) * (H/220);
-    _obstacles.push({ x: W + 10, y: H - groundOffset - h, w: (18 + Math.random()*10) * (H/220), h });
+    const h = 18 + Math.random()*10; // hauteur fixe, petite : 18 à 28px
+    _obstacles.push({ x: W + 10, y: H - groundOffset - h, w: 16 + Math.random()*8, h });
   }
 
   // Déplacement obstacles
