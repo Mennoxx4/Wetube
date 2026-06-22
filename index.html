@@ -4757,7 +4757,7 @@ window.startWeRunner = function() {
 
 function jumpPlayer() {
   if (!_player || _player.jumping) return;
-  _player.vy = -19;
+  _player.vy = -14;
   _player.jumping = true;
 }
 
@@ -4769,7 +4769,7 @@ function gameTick() {
   _gameFrame++;
 
   // Physique joueur (gravité plus forte vu le canvas agrandi)
-  _player.vy += 1.1;
+  _player.vy += 0.55;
   _player.y += _player.vy;
   if (_player.y >= _player.groundY) {
     _player.y = _player.groundY;
@@ -4777,10 +4777,13 @@ function gameTick() {
     _player.jumping = false;
   }
 
-  // Génération d'obstacles — taille FIXE et petite, peu importe la hauteur du canvas
-  if (_gameFrame % Math.max(60, 95 - Math.floor(_gameSpeed*2)) === 0) {
-    const h = 18 + Math.random()*10; // hauteur fixe, petite : 18 à 28px
-    _obstacles.push({ x: W + 10, y: H - groundOffset - h, w: 16 + Math.random()*8, h });
+  // Génération d'obstacles — espacement calculé pour laisser le temps d'atterrir + réagir
+  // Distance de saut ≈ 60-70px à vitesse normale, on espace donc largement plus que ça
+  const minGapFrames = 90; // ne descend jamais sous 90 frames d'écart
+  const gapFrames = Math.max(minGapFrames, 140 - Math.floor(_gameSpeed*6));
+  if (_gameFrame % gapFrames === 0) {
+    const h = 16 + Math.random()*8; // hauteur petite : 16 à 24px, largement sautable
+    _obstacles.push({ x: W + 10, y: H - groundOffset - h, w: 14 + Math.random()*6, h });
   }
 
   // Déplacement obstacles
