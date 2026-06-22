@@ -4650,7 +4650,7 @@ window.deleteProduct = async function(productId) {
 
 // ══ WETUBE JEUX — WeRunner (façon Dino/Flappy) ══
 let _gameCtx = null, _gameCanvas = null, _gameLoop = null;
-let _gameRunning = false, _gameScore = 0, _gameSpeed = 3;
+let _gameRunning = false, _gameScore = 0, _gameSpeed = 1.8;
 let _player = null, _obstacles = [], _gameFrame = 0;
 let _gameKeyHandler = null;
 
@@ -4682,7 +4682,7 @@ function resizeGameCanvas() {
   if (!_gameCanvas) return;
   const rect = _gameCanvas.getBoundingClientRect();
   _gameCanvas.width = rect.width;
-  _gameCanvas.height = 380;
+  _gameCanvas.height = window.innerWidth < 700 ? 320 : 520;
 }
 
 function loadHighScore() {
@@ -4737,7 +4737,7 @@ window.startWeRunner = function() {
   if (!_gameCanvas) initGamesPage();
   document.getElementById('gameOverlay').style.display = 'none';
   _gameScore = 0;
-  _gameSpeed = 3;
+  _gameSpeed = 1.8;
   _gameFrame = 0;
   _obstacles = [];
   document.getElementById('gameScore').textContent = '0';
@@ -4757,7 +4757,7 @@ window.startWeRunner = function() {
 
 function jumpPlayer() {
   if (!_player || _player.jumping) return;
-  _player.vy = -16;
+  _player.vy = -19;
   _player.jumping = true;
 }
 
@@ -4769,7 +4769,7 @@ function gameTick() {
   _gameFrame++;
 
   // Physique joueur (gravité plus forte vu le canvas agrandi)
-  _player.vy += 1.0;
+  _player.vy += 1.1;
   _player.y += _player.vy;
   if (_player.y >= _player.groundY) {
     _player.y = _player.groundY;
@@ -5797,6 +5797,9 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
   pointer-events:none;
   transition:left .05s linear;
 }
+.werunner-canvas{height:520px}
+@media(max-width:700px){.werunner-canvas{height:320px}}
+
 .short-seekbar:hover .short-seekbar-fill,
 .short-seekbar:active .short-seekbar-fill{height:4px}
 
@@ -6478,7 +6481,7 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
   <div class="sec-title"><span class="sec-dot"></span>🎮 WeTube Jeux</div>
   <p style="color:var(--muted);font-size:13px;margin-bottom:20px">Joue en attendant le chargement d'une vidéo, ou juste pour le fun !</p>
 
-  <div style="background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:980px">
+  <div style="background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:1280px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
       <div style="font-size:15px;font-weight:700">🦖 WeRunner</div>
       <div style="display:flex;gap:16px;font-size:13px;color:var(--muted)">
@@ -6488,7 +6491,7 @@ main{margin-left:var(--sidebar);padding:calc(var(--hh) + 22px) 24px 50px}
     </div>
 
     <div style="position:relative;border-radius:10px;overflow:hidden;border:2px solid var(--border);background:#0a0a14">
-      <canvas id="weRunnerCanvas" width="960" height="380" style="width:100%;height:380px;display:block;touch-action:none;cursor:pointer"></canvas>
+      <canvas id="weRunnerCanvas" width="1240" height="520" class="werunner-canvas" style="width:100%;display:block;touch-action:none;cursor:pointer"></canvas>
       <div id="gameOverlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(0,0,0,.55);text-align:center;padding:20px">
         <div style="font-size:36px">🦖</div>
         <div id="gameOverlayTitle" style="font-size:18px;font-weight:800;color:#fff">WeRunner</div>
